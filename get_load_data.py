@@ -79,11 +79,16 @@ def get_hist_load_data():
     if os.path.exists(hist_load_file_path):
         # If the CSV exists, load it and re-create the dictionary structure.
         df_combined = pd.read_csv(hist_load_file_path)
+        print("HIST LOAD")
+        print(df_combined)
+
         load_zone_dfs = {}
         for zone in LOAD_ZONES:
-            zone_df = df_combined[df_combined['TZ'] == zone].copy()
+            zone_df = df_combined[df_combined['Zone'] == zone].copy()
             load_zone_dfs[zone] = zone_df
     else:
+        
+        
         start_date = dt.datetime(2002, 1, 1)
         end_date = dt.datetime(2025, 1, 1)
         load_zone_dfs = get_load_data_from_nyiso(start_date=start_date, end_date=end_date)
@@ -109,6 +114,12 @@ def get_load_data():
     curr_dfs = get_curr_load_data()
     hist_dfs = get_hist_load_data()
 
+    print(curr_dfs)
+
+    print("HISTORY")
+    print(hist_dfs)
+    print("HISTORY")
+
     # Merge the dictionaries by concatenating DataFrames for each zone.
     load_zone_dfs = {}
     for zone in LOAD_ZONES:
@@ -119,6 +130,8 @@ def get_load_data():
     combined_df = pd.concat([df.assign(Zone=zone) for zone, df in load_zone_dfs.items()])
     combined_path = os.path.join(DATA_DIR, LOAD_FILE)
     combined_df.to_csv(combined_path, index=False)
+
+    print(combined_df.head)
 
     return load_zone_dfs
 

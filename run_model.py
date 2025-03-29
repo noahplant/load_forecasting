@@ -14,6 +14,35 @@ from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 
 import streamlit as st
 
+
+# Main
+# Has parameters you can choose: 
+# Download new load and weather
+# Type of data processing 
+# Type of model 
+# Hyper parameters
+# Start and end date for training
+# Test dates. 
+
+# For all: gets all the data into a dataframe. 
+# Use another file to process it into different df.
+# Use another module for features 
+# Use another module for model and Hyper param
+
+
+# App
+# Gets all data. 
+# Click to choose type of data processing
+# Click to choose range of data
+# Click to choose dates to forecast
+    # Those will be the validation.
+# Click to choose model and start training. 
+# Click to choose if you want to show data plots. 
+
+
+
+
+
 # =============================================================================
 # Directory and File Configurations
 # =============================================================================
@@ -23,6 +52,18 @@ DATA_DIR_WEATHER = os.path.join(script_dir, 'data', 'weather')
 
 LOAD_FILE = 'nyiso_load.csv'
 WEATHER_FILE = 'nyiso_weather.csv'
+
+LAST_24 = pd.Timedelta(hours=24) # Subtract this from max Dattime
+CUTOFF = pd.to_datetime('2024-05-31')
+PREDICTION_DATE_LIST = [
+    pd.to_datetime('2024-06-05'),  
+    pd.to_datetime('2024-09-09'),
+    pd.to_datetime('2024-10-21'),
+    pd.to_datetime('2024-11-08'),
+    pd.to_datetime('2024-12-27')
+    
+]
+
 
 # List of load zones
 LOAD_ZONES = [
@@ -122,6 +163,9 @@ def prepare_data():
 # Hyperparameter Tuning Functions
 # =============================================================================
 
+
+
+
 def tune_xgb_cv(X_train, y_train, param_grid, num_boost_round=100, nfold=5, early_stopping_rounds=10):
     """
     For each combination in the param_grid, run cross-validation using xgb.cv
@@ -206,7 +250,7 @@ class ModelResults():
         y = df[zone]
         # Use time-based split: last 24 hours as test
         cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-        train_idx = df['DateTime'] < cutoff
+        train_idx = df['DateTime'] < CUTOFF
         X_train = X[train_idx]
         y_train = y[train_idx]
         model = xgb.XGBRegressor(
@@ -224,8 +268,8 @@ class ModelResults():
         zone_train_preds = pd.DataFrame(index=df.index)
         zone_test_preds = pd.DataFrame(index=df.index)
         cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-        self.train_index = df.index[df['DateTime'] < cutoff]
-        self.test_index = df.index[df['DateTime'] >= cutoff]
+        self.train_index = df.index[df['DateTime'] < CUTOFF]
+        self.test_index = df.index[df['DateTime'] >= CUTOFF]
         for zone in LOAD_ZONES:
             st.write(f"Training model for zone: {zone}")
             model = self.train_zone_model(df, zone)
@@ -241,7 +285,7 @@ class ModelResults():
 
     def train_weighted_sum_regressor(self, df):
         cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-        self.train_index = df.index[df['DateTime'] < cutoff]
+        self.train_index = df.index[df['DateTime'] < CUTOFF]
         X_train = self.zone_train_preds.loc[self.train_index][LOAD_ZONES]
         y_train = df.loc[self.train_index]['Total_Load']
         lr = LinearRegression(fit_intercept=True)
@@ -257,7 +301,7 @@ class ModelResults():
 
     def evaluate_weighted_regressor(self, df):
         cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-        self.test_index = df.index[df['DateTime'] >= cutoff]
+        self.test_index = df.index[df['DateTime'] >= CUTOFF]
         X_test = self.zone_test_preds.loc[self.test_index][LOAD_ZONES]
         y_test = df.loc[self.test_index]['Total_Load']
         y_pred = self.weighted_regressor.predict(X_test)
@@ -270,7 +314,7 @@ class ModelResults():
     def backtest(self, df):
         backtest_preds = {}
         cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-        self.train_index = df.index[df['DateTime'] < cutoff]
+        self.train_index = df.index[df['DateTime'] < CUTOFF]
         for zone in LOAD_ZONES:
             feat_cols = self.feature_mapping[zone]
             X_train = df[feat_cols].loc[self.train_index]
@@ -292,7 +336,7 @@ class ModelResults():
         self.backtest_predictions = backtest
         self.test_predictions = self.zone_test_preds
         cutoff = self.df['DateTime'].max() - pd.Timedelta(hours=24)
-        df_test = self.df[self.df['DateTime'] >= cutoff].copy().reset_index(drop=True)
+        df_test = self.df[self.df['DateTime'] >= CUTOFF].copy().reset_index(drop=True)
         df_test['Pred_Total_Load'] = pred_total[:len(df_test)]
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(df_test['DateTime'], df_test['Total_Load'], label='Actual Total Load')
@@ -355,6 +399,79 @@ def plot_backtest(train, weighted_regressor, zone_train_preds, labels):
 # =============================================================================
 # Hyperparameter Tuning Plotting
 # =============================================================================
+def tune_and_plot_hyperparameters_split(X_train, y_train, X_test, y_test):
+    """
+    Tune hyperparameters (learning_rate, max_depth, n_estimators) using a fixed train/test split.
+    For each parameter combination:
+      - Train an XGBoost model on X_train, y_train
+      - Predict on both train and test sets
+      - Compute RMSE for both and take the average error
+    The function then creates a grouped bar chart using Plotly to compare the train RMSE, test RMSE, and average error.
+    """
+    # Define the parameter grid
+    param_grid = {
+        'learning_rate': [0.1, 0.2],
+        'max_depth': [3, 6],
+        'n_estimators': [500, 700]
+    }
+    
+    tuning_results = []
+    # Loop over every combination of parameters
+    for lr, md, n_est in itertools.product(param_grid['learning_rate'],
+                                             param_grid['max_depth'],
+                                             param_grid['n_estimators']):
+        params = {
+            'learning_rate': lr,
+            'max_depth': md,
+            'n_estimators': n_est,
+            'objective': 'reg:squarederror',
+            'seed': 42,
+            'verbosity': 0
+        }
+        # Create and train the model
+        model = xgb.XGBRegressor(**params)
+        model.fit(X_train, y_train)
+        
+        # Predict on train and test sets
+        y_train_pred = model.predict(X_train)
+        y_test_pred = model.predict(X_test)
+        
+        # Compute RMSE for both sets
+        rmse_train = np.sqrt(mean_squared_error(y_train, y_train_pred))
+        rmse_test = np.sqrt(mean_squared_error(y_test, y_test_pred))
+        avg_error = (rmse_train + rmse_test) / 2
+        
+        tuning_results.append({
+            'params': params,
+            'rmse_train': rmse_train,
+            'rmse_test': rmse_test,
+            'avg_error': avg_error
+        })
+    
+    # Prepare data for plotting with Plotly
+    plot_data = pd.DataFrame([{
+        'learning_rate': res['params']['learning_rate'],
+        'max_depth': res['params']['max_depth'],
+        'n_estimators': res['params']['n_estimators'],
+        'Train RMSE': res['rmse_train'],
+        'Test RMSE': res['rmse_test'],
+        'Average Error': res['avg_error']
+    } for res in tuning_results])
+    
+    # Create a column to uniquely identify each parameter combination
+    plot_data['Param Combo'] = plot_data.apply(
+        lambda row: f"lr={row['learning_rate']}, depth={row['max_depth']}, n_est={row['n_estimators']}",
+        axis=1
+    )
+    
+    # Create a grouped bar chart comparing the RMSE values
+    fig = px.bar(plot_data, x='Param Combo', y=['Train RMSE', 'Test RMSE', 'Average Error'],
+                 barmode='group',
+                 title="Hyperparameter Tuning Results (Fixed Train/Test Split)")
+    st.plotly_chart(fig)
+    
+    return tuning_results
+
 
 def tune_and_plot_hyperparameters(X_train, y_train):
     """
@@ -417,6 +534,8 @@ def plot_cv_results(cv_result, title="CV Learning Curve"):
     ax.legend()
     return fig
 
+
+
 # =============================================================================
 # Cache the ModelResults instance
 # =============================================================================
@@ -439,8 +558,9 @@ if st.checkbox("Show Hyperparameter Tuning"):
     st.write("Tuning hyperparameters on the training set of the Total_Load prediction...")
     df = prepare_data()
     cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-    train_df = df[df['DateTime'] < cutoff]
+    train_df = df[df['DateTime'] < CUTOFF]
     # Use time features plus a constant if needed
+    # Why not the full training?
     X = train_df[['Hour', 'DaySin', 'DayCos', 'Year', 'IsHoliday']]
     y = train_df['Total_Load']
     tuning_results = tune_and_plot_hyperparameters(X, y)
@@ -451,8 +571,8 @@ results = get_model_results()
 
 df = results.df
 cutoff = df['DateTime'].max() - pd.Timedelta(hours=24)
-train = df[df['DateTime'] < cutoff]
-test = df[df['DateTime'] >= cutoff]
+train = df[df['DateTime'] < CUTOFF]
+test = df[df['DateTime'] >= CUTOFF]
 
 st.write("### Data Overview")
 st.write("Full Data:", df)
@@ -468,6 +588,63 @@ total_load_pred = results.weighted_regressor.predict(X_test)
 y_test = df.loc[results.test_index]['Total_Load'].values
 plot_predictions_vs_labels(y_true=y_test, y_pred=total_load_pred)
 st.write("Average Error in MW: ", results.average_total_error)
+
+st.write("### Predictions for Competition")
+
+# Filter test data for the specified prediction dates
+# (Assuming df has a 'DateTime' column)
+test_df = df.loc[results.test_index]
+comp_mask = test_df['DateTime'].dt.date.isin([pd.to_datetime(d).date() for d in PREDICTION_DATE_LIST])
+comp_test_df = test_df[comp_mask]
+
+# Get the corresponding features and true values for all competition dates
+X_test_comp = results.zone_test_preds.loc[comp_test_df.index][LOAD_ZONES]
+comp_preds = results.weighted_regressor.predict(X_test_comp)
+comp_trues = comp_test_df['Total_Load'].values
+
+st.write("### Predictions for Competition (All Dates Together)")
+plot_predictions_vs_labels(y_true=comp_trues, y_pred=comp_preds)
+
+# Option 2: Plot predictions for each date individually
+st.write("### Individual Day Predictions for Competition")
+for pred_date in PREDICTION_DATE_LIST:
+    # Convert pred_date to a date object
+    pred_date_obj = pd.to_datetime(pred_date).date()
+    # Filter for the specific date using only the date part
+    date_mask = comp_test_df['DateTime'].dt.date == pred_date_obj
+    if date_mask.sum() == 0:
+        st.write(f"No data for date: {pred_date}")
+        continue
+    X_date = results.zone_test_preds.loc[comp_test_df[date_mask].index][LOAD_ZONES]
+    y_date_true = comp_test_df.loc[date_mask, 'Total_Load'].values
+    y_date_pred = results.weighted_regressor.predict(X_date)
+    st.write(f"Predictions for {pred_date}:")
+    plot_predictions_vs_labels(y_true=y_date_true, y_pred=y_date_pred)
+
+# Compute overall competition error using RMSE
+comp_error = np.sqrt(np.mean((comp_preds - comp_trues) ** 2))
+st.write('### Competition Error:', comp_error)
+
+
+# Create a DataFrame for the competition predictions
+predictions_df = comp_test_df.copy()
+predictions_df['Predicted_Load'] = comp_preds
+# Select only the DateTime and prediction, then sort by DateTime
+predictions_df = predictions_df[['DateTime', 'Predicted_Load']].sort_values('DateTime')
+
+# Print header
+st.write("Datetime, LoadValue")
+
+# Accumulate each formatted row into a single string
+output_str = ""
+for _, row in predictions_df.iterrows():
+    # Format the datetime and load value (one decimal place)
+    dt_str = row['DateTime'].strftime('%Y-%m-%d %H:%M')
+    load_str = f"{row['Predicted_Load']:.1f}"
+    output_str += f"{dt_str}, {load_str}\n"
+
+# Display the complete output without extra spacing between rows
+st.text(output_str)
 
 st.write("### (Optional) Training History")
 selected_hour = st.slider('Select Hour (for training history display)', 0, 23, 0)
