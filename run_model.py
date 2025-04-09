@@ -15,37 +15,13 @@ from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 import streamlit as st
 
 
-# Main
-# Has parameters you can choose: 
-# Download new load and weather
-# Type of data processing 
-# Type of model 
-# Hyper parameters
-# Start and end date for training
-# Test dates. 
-
-# For all: gets all the data into a dataframe. 
-# Use another file to process it into different df.
-# Use another module for features 
-# Use another module for model and Hyper param
-
-
-# App
-# Gets all data. 
-# Click to choose type of data processing
-# Click to choose range of data
-# Click to choose dates to forecast
-    # Those will be the validation.
-# Click to choose model and start training. 
-# Click to choose if you want to show data plots. 
 
 
 
 
 
-# =============================================================================
 # Directory and File Configurations
-# =============================================================================
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR_LOAD = os.path.join(script_dir, 'data', 'load')
 DATA_DIR_WEATHER = os.path.join(script_dir, 'data', 'weather')
@@ -91,9 +67,8 @@ zone_weather_map = {
     'N.Y.C.': ['KJFK', 'KLGA']   # JFK & LaGuardia
 }
 
-# =============================================================================
+
 # Data Preparation Functions
-# =============================================================================
 
 def load_and_merge_data():
     """
@@ -159,12 +134,7 @@ def prepare_data():
     df = df.dropna(subset=LOAD_ZONES + ['Total_Load'])
     return df
 
-# =============================================================================
 # Hyperparameter Tuning Functions
-# =============================================================================
-
-
-
 
 def tune_xgb_cv(X_train, y_train, param_grid, num_boost_round=100, nfold=5, early_stopping_rounds=10):
     """
@@ -213,9 +183,8 @@ def plot_cv_results(cv_result, title="CV Learning Curve"):
     ax.legend()
     return fig
 
-# =============================================================================
+
 # ModelResults Class (for forecasting)
-# =============================================================================
 
 class ModelResults():
     def __init__(self):
@@ -348,9 +317,8 @@ class ModelResults():
         plt.xticks(rotation=45)
         st.pyplot(fig)
 
-# =============================================================================
+
 # Visualization Functions
-# =============================================================================
 
 def plot_history_streamlit(history):
     if history is None:
@@ -396,9 +364,9 @@ def plot_backtest(train, weighted_regressor, zone_train_preds, labels):
                   title="Aggregated Backtest: Predictions vs. True Total Load Over Time")
     st.plotly_chart(fig)
 
-# =============================================================================
+
 # Hyperparameter Tuning Plotting
-# =============================================================================
+
 def tune_and_plot_hyperparameters_split(X_train, y_train, X_test, y_test):
     """
     Tune hyperparameters (learning_rate, max_depth, n_estimators) using a fixed train/test split.
@@ -536,9 +504,8 @@ def plot_cv_results(cv_result, title="CV Learning Curve"):
 
 
 
-# =============================================================================
+
 # Cache the ModelResults instance
-# =============================================================================
 
 @st.cache_resource
 def get_model_results():
@@ -547,9 +514,8 @@ def get_model_results():
     st.write("Finished Training.")
     return results
 
-# =============================================================================
+
 # Streamlit App Layout
-# =============================================================================
 
 st.title("Electricity Load Forecasting")
 

@@ -14,9 +14,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_percentage_error
 
 import streamlit as st
 
-# =============================================================================
+
 # Directory and File Configurations
-# =============================================================================
 script_dir = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR_LOAD = os.path.join(script_dir, 'data', 'load')
 DATA_DIR_WEATHER = os.path.join(script_dir, 'data', 'weather')
@@ -33,10 +32,10 @@ LOAD_ZONES = [
 best_params = {
     'learning_rate': 0.2,
     'max_depth': 6,
-    'n_estimators': 700  # or use the best round from CV if available
+    'n_estimators': 700  
 }
 
-# Example: updated zone->stations mapping using station codes
+# updated zone->stations mapping using station codes
 zone_weather_map = {
     'WEST':   ['KROC', 'KBGM'],  # Rochester & Binghamton
     'GENESE': ['KROC', 'KUCA'],  # Rochester & Utica
@@ -50,9 +49,8 @@ zone_weather_map = {
     'N.Y.C.': ['KJFK', 'KLGA']   # JFK & LaGuardia
 }
 
-# =============================================================================
+
 # Data Preparation Functions
-# =============================================================================
 
 def load_and_merge_data():
     """
@@ -145,9 +143,8 @@ def prepare_data():
     df = df.dropna(subset=LOAD_ZONES + ['Total_Load'])
     return df
 
-# =============================================================================
+
 # Hyperparameter Tuning Functions
-# =============================================================================
 
 def tune_xgb_cv(X_train, y_train, param_grid, num_boost_round=100, nfold=5, early_stopping_rounds=10):
     """
@@ -196,9 +193,8 @@ def plot_cv_results(cv_result, title="CV Learning Curve"):
     ax.legend()
     return fig
 
-# =============================================================================
+
 # ModelResults Class (for forecasting)
-# =============================================================================
 
 class ModelResults():
     def __init__(self):
@@ -337,11 +333,10 @@ class ModelResults():
         st.text(output_str)
 
 
-    # (Optional: remove evaluate_weighted_regressor and backtest methods if no longer needed)
 
-# =============================================================================
+
+
 # Visualization Functions
-# =============================================================================
 
 def plot_history_streamlit(history):
     if history is None:
@@ -387,9 +382,8 @@ def plot_backtest(train, weighted_regressor, zone_train_preds, labels):
                   title="Aggregated Backtest: Predictions vs. True Total Load Over Time")
     st.plotly_chart(fig)
 
-# =============================================================================
+
 # Hyperparameter Tuning Plotting
-# =============================================================================
 
 def tune_and_plot_hyperparameters(X_train, y_train):
     """
@@ -452,9 +446,8 @@ def plot_cv_results(cv_result, title="CV Learning Curve"):
     ax.legend()
     return fig
 
-# =============================================================================
+
 # Cache the ModelResults instance
-# =============================================================================
 
 @st.cache_resource
 def get_model_results():
@@ -462,6 +455,7 @@ def get_model_results():
     results.run()
     st.write("Finished Training and Forecasting.")
     return results
+
 
 # =============================================================================
 # Streamlit App Layout
@@ -491,4 +485,4 @@ st.write("### Scatter Plots: Feature vs. Load")
 plot_data(df)
 
 st.write("### 24-Hour Forecast (from WEATHER_TEST)")
-# The forecast plot is generated in results.run()
+
