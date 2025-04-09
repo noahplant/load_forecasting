@@ -2,15 +2,15 @@
 Millennium Load Forecasting 
 
 *Environment
-- Make sure to create your own env 
+- Make sure to create your own env if there are dep errors. 
 - Make sure it can run streamlit
 - If there is an error and it needs to run tensorflow (if you run NN) it could 
 be a mac issue. 
 
 Gather Data:
-- Weather: Remove csv files to fetch the newest data (don't remove the hist file, because it takes ages to run)
+- Weather: Remove csv files manually to fetch the newest data (don't remove the hist file, because it takes ages to run)
 - python get_load_data.py
-- Load: Remove csv files to fetch the newest data (don't remove the hist file, because it takes ages to run)
+- Load: Remove csv files manually to fetch the newest data (don't remove the hist file, because it takes ages to run)
 - python get_weather_data.py
 
 Run the 24 hour prediction 
